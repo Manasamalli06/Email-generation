@@ -3,7 +3,6 @@ const express = require('express');
 const session = require('express-session');
 const { google } = require('googleapis');
 const path = require('path');
-const mail = require('./imap-mail');
 
 const {
   GOOGLE_CLIENT_ID,
@@ -48,8 +47,6 @@ function authedClient(req) {
 }
 
 function requireAuth(req, res, next) {
-  // Connected with an app password (SMTP/IMAP)? Use that instead of Google.
-  if (req.session.imap) { req.imap = req.session.imap; return next(); }
   const client = authedClient(req);
   if (!client) return res.status(401).json({ error: 'Not connected' });
   req.gclient = client;
@@ -92,26 +89,9 @@ app.get('/auth/google/callback', async (req, res) => {
 
 app.post('/auth/logout', (req, res) => req.session.destroy(() => res.json({ ok: true })));
 
-// ---------- Alternative: connect any mailbox with SMTP + IMAP (app password) ----------
-app.post('/api/imap/connect', async (req, res) => {
-  const { email, password, provider } = req.body || {};
-  if (!email || !password || !provider) return res.status(400).json({ error: 'Email, app password and provider are required' });
-  try {
-    const cfg = mail.buildConfig({ ...req.body, password: String(password).replace(/\s+/g, '') });
-    await mail.verify(cfg);
-    req.session.imap = cfg;
-    req.session.user = { email, name: req.session.profile?.fullName || email, picture: '' };
-    res.json({ ok: true });
-  } catch (e) {
-    console.error('IMAP connect failed:', e.message);
-    res.status(401).json({ error: 'Could not sign in. Check the email, app password and provider.' });
-  }
-});
-
 app.get('/api/me', (req, res) => {
   res.json({
-    mode: req.session.imap ? 'imap' : (req.session.tokens ? 'google' : null),
-    connected: !!(req.session.tokens || req.session.imap),
+    connected: !!req.session.tokens,
     user: req.session.user || null,
     profile: req.session.profile || null,
   });
@@ -122,7 +102,6 @@ const header = (headers, name) => (headers.find((h) => h.name.toLowerCase() === 
 
 app.get('/api/emails', requireAuth, async (req, res) => {
   try {
-    if (req.imap) return res.json(await mail.listInbox(req.imap));
     const gmail = google.gmail({ version: 'v1', auth: req.gclient });
     const list = await gmail.users.messages.list({ userId: 'me', maxResults: 15, labelIds: ['INBOX'] });
     const ids = (list.data.messages || []).map((m) => m.id);
@@ -157,7 +136,6 @@ function extractBody(payload) {
 
 app.get('/api/emails/:id', requireAuth, async (req, res) => {
   try {
-    if (req.imap) return res.json(await mail.readMessage(req.imap, req.params.id));
     const gmail = google.gmail({ version: 'v1', auth: req.gclient });
     const { data } = await gmail.users.messages.get({ userId: 'me', id: req.params.id, format: 'full' });
     res.json({
@@ -179,10 +157,6 @@ app.post('/api/emails/send', requireAuth, async (req, res) => {
   if (!to || !subject) return res.status(400).json({ error: 'To and subject are required' });
   if (/[\r\n]/.test(to + subject)) return res.status(400).json({ error: 'Invalid header characters' });
   try {
-    if (req.imap) {
-      await mail.sendMessage(req.imap, { to, subject, body });
-      return res.json({ ok: true });
-    }
     const gmail = google.gmail({ version: 'v1', auth: req.gclient });
     const raw = [
       `To: ${to}`,
