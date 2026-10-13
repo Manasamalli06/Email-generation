@@ -78,6 +78,29 @@
     <p style="color:var(--muted)">One click. You'll sign in with Google and allow read + send access. Nothing is stored beyond your session.</p>
     <div class="row"><button id="connect">Connect Gmail</button><button class="ghost" id="back">Back</button></div>
     <div class="msg err" id="err2"></div>
+
+    <hr style="border:0;border-top:1px solid var(--line);margin:24px 0">
+    <h3 style="margin:0 0 4px">Or connect any email with an app password</h3>
+    <p style="color:var(--muted);margin-top:0;font-size:14px">Works with Gmail, Outlook, Yahoo, Zoho or your own mail server (SMTP + IMAP). Use an <b>app password</b>, not your normal password.</p>
+    <label for="imProvider">Provider</label>
+    <select id="imProvider" style="width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;font:inherit;background:var(--bg);color:var(--ink)">
+      <option value="gmail">Gmail</option>
+      <option value="outlook">Outlook / Hotmail</option>
+      <option value="yahoo">Yahoo</option>
+      <option value="zoho">Zoho</option>
+      <option value="custom">Other (enter servers)</option>
+    </select>
+    <label for="imEmail">Email address</label>
+    <input id="imEmail" type="email" autocomplete="off">
+    <label for="imPass">App password</label>
+    <input id="imPass" type="password" autocomplete="new-password" placeholder="16-character app password">
+    <div id="imCustom" class="hidden">
+      <label for="imImapHost">IMAP server</label><input id="imImapHost" placeholder="imap.example.com">
+      <label for="imImapPort">IMAP port</label><input id="imImapPort" value="993">
+      <label for="imSmtpHost">SMTP server</label><input id="imSmtpHost" placeholder="smtp.example.com">
+      <label for="imSmtpPort">SMTP port</label><input id="imSmtpPort" value="465">
+    </div>
+    <div class="row"><button id="imConnect">Connect with app password</button><span class="msg" id="imMsg"></span></div>
   </section>
 
   <!-- STEP 3 -->
@@ -140,6 +163,24 @@ $('continue').onclick = async () => {
 };
 $('back').onclick = () => show(1);
 $('connect').onclick = () => { location.href = '/auth/google'; };
+
+// App password (SMTP + IMAP) connection
+$('imProvider').onchange = () => $('imCustom').classList.toggle('hidden', $('imProvider').value !== 'custom');
+$('imConnect').onclick = async () => {
+  const msg = $('imMsg'); msg.className = 'msg'; msg.textContent = 'Connecting…';
+  $('imConnect').disabled = true;
+  try {
+    await api('/api/imap/connect', { method: 'POST', body: {
+      provider: $('imProvider').value, email: $('imEmail').value.trim(), password: $('imPass').value,
+      imapHost: $('imImapHost').value.trim(), imapPort: $('imImapPort').value.trim(),
+      smtpHost: $('imSmtpHost').value.trim(), smtpPort: $('imSmtpPort').value.trim(),
+    } });
+    $('imPass').value = '';
+    location.href = '/?connected=1';
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+  $('imConnect').disabled = false;
+};
+
 $('logout').onclick = async () => { await api('/auth/logout', { method: 'POST' }); location.href = '/'; };
 
 // TABS
