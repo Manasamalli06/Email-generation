@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Email & Chat Integration Demo</title>
+<style>
+  :root { --bg:#f6f7fb; --card:#fff; --ink:#1c2230; --muted:#6b7385; --brand:#3b5bdb; --line:#e3e6ee; --ok:#2b8a3e; --err:#c92a2a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12151c; --card:#1a1f2b; --ink:#e8ebf3; --muted:#9aa3b5; --line:#2a3142; --brand:#6c8cff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
+  header { padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); background:var(--card); }
+  header h1 { font-size:18px; margin:0; }
+  main { max-width:960px; margin:24px auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
+  .steps { display:flex; gap:8px; margin-bottom:16px; font-size:13px; color:var(--muted); }
+  .step { padding:6px 12px; border-radius:999px; border:1px solid var(--line); }
+  .step.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .step.done { color:var(--ok); border-color:var(--ok); }
+  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
+  input, textarea { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:var(--bg); color:var(--ink); }
+  textarea { min-height:120px; resize:vertical; }
+  button { padding:10px 16px; border:0; border-radius:8px; background:var(--brand); color:#fff; font:inherit; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  button:disabled { opacity:.5; cursor:default; }
+  .row { display:flex; gap:12px; margin-top:16px; align-items:center; flex-wrap:wrap; }
+  .tabs { display:flex; gap:4px; margin-bottom:12px; }
+  .tab { padding:8px 14px; border-radius:8px; cursor:pointer; color:var(--muted); }
+  .tab.active { background:var(--card); color:var(--ink); border:1px solid var(--line); }
+  .grid { display:grid; grid-template-columns: 1fr 1.2fr; gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .mail { padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .mail:hover { background:var(--bg); }
+  .mail b { display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mail span { font-size:12px; color:var(--muted); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .list { max-height:460px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
+  .reader pre { white-space:pre-wrap; word-wrap:break-word; font:inherit; }
+  .msg { font-size:13px; margin-top:8px; }
+  .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
+  .chat { height:340px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--bg); }
+  .bubble { margin-bottom:8px; } .bubble small { color:var(--muted); } .bubble div { margin-top:2px; }
+  .hidden { display:none; }
+  .who { font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px; }
+  .who img { width:26px; height:26px; border-radius:50%; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Email & Chat Integration Demo</h1>
+  <div class="who hidden" id="who"><img id="avatar" alt=""><span id="whoText"></span><button class="ghost" id="logout">Disconnect</button></div>
+</header>
+
+<main>
+  <div class="steps">
+    <div class="step" id="s1">1. Your details</div>
+    <div class="step" id="s2">2. Connect email</div>
+    <div class="step" id="s3">3. Use it</div>
+  </div>
+
+  <!-- STEP 1 -->
+  <section class="card" id="step1">
+    <h2 style="margin-top:0">Tell us a bit about you</h2>
+    <p style="color:var(--muted)">Fill in what's asked and your email setup starts right here.</p>
+    <label for="fullName">Full name *</label>
+    <input id="fullName" autocomplete="name">
+    <label for="company">Company / team *</label>
+    <input id="company" autocomplete="organization">
+    <label for="hint">Email address you want to connect (optional)</label>
+    <input id="hint" type="email" autocomplete="email">
+    <div class="row"><button id="continue">Continue</button><span class="msg err" id="err1"></span></div>
+  </section>
+
+  <!-- STEP 2 -->
+  <section class="card hidden" id="step2">
+    <h2 style="margin-top:0">Connect your email</h2>
+    <p style="color:var(--muted)">One click. You'll sign in with Google and allow read + send access. Nothing is stored beyond your session.</p>
+    <div class="row"><button id="connect">Connect Gmail</button><button class="ghost" id="back">Back</button></div>
+    <div class="msg err" id="err2"></div>
+  </section>
+
+  <!-- STEP 3 -->
+  <section class="hidden" id="step3">
+    <div class="tabs">
+      <div class="tab active" data-tab="inbox">Inbox</div>
+      <div class="tab" data-tab="compose">Compose</div>
+      <div class="tab" data-tab="chat">Chat</div>
+    </div>
+
+    <div class="card" id="tab-inbox">
+      <div class="grid">
+        <div class="list" id="mailList"></div>
+        <div class="reader" id="reader"><p style="color:var(--muted)">Select an email to read it.</p></div>
+      </div>
+      <div class="row"><button class="ghost" id="refresh">Refresh</button></div>
+    </div>
+
+    <div class="card hidden" id="tab-compose">
+      <label for="to">To</label><input id="to" type="email">
+      <label for="subject">Subject</label><input id="subject">
+      <label for="body">Message</label><textarea id="body"></textarea>
+      <div class="row"><button id="send">Send</button><span class="msg" id="sendMsg"></span></div>
+    </div>
+
+    <div class="card hidden" id="tab-chat">
+      <div class="chat" id="chat"></div>
+      <div class="row">
+        <input id="chatText" placeholder="Type a message…" style="flex:1">
+        <button id="chatSend">Send</button>
+      </div>
+      <p class="msg" style="color:var(--muted)">Sample chat integration. Open this page in two browsers to see messages sync.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const api = async (url, opts) => {
+  const r = await fetch(url, opts && opts.body ? { ...opts, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts.body) } : opts);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Request failed');
+  return data;
+};
+
+function show(step) {
+  ['step1','step2','step3'].forEach((s, i) => {
+    $(s).classList.toggle('hidden', i + 1 !== step);
+    $('s' + (i + 1)).className = 'step' + (i + 1 === step ? ' active' : i + 1 < step ? ' done' : '');
+  });
+}
+
+// STEP 1
+$('continue').onclick = async () => {
+  $('err1').textContent = '';
+  try {
+    await api('/api/onboard', { method: 'POST', body: { fullName: $('fullName').value.trim(), company: $('company').value.trim(), email: $('hint').value.trim() } });
+    show(2);
+  } catch (e) { $('err1').textContent = e.message; }
+};
+$('back').onclick = () => show(1);
+$('connect').onclick = () => { location.href = '/auth/google'; };
+$('logout').onclick = async () => { await api('/auth/logout', { method: 'POST' }); location.href = '/'; };
+
+// TABS
+document.querySelectorAll('.tab').forEach((t) => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
+  ['inbox','compose','chat'].forEach((n) => $('tab-' + n).classList.toggle('hidden', n !== t.dataset.tab));
+});
+
+// INBOX
+async function loadInbox() {
+  const list = $('mailList');
+  list.textContent = 'Loading…';
+  try {
+    const mails = await api('/api/emails');
+    list.textContent = '';
+    if (!mails.length) list.textContent = 'Inbox is empty.';
+    mails.forEach((m) => {
+      const el = document.createElement('div'); el.className = 'mail';
+      const s = document.createElement('b'); s.textContent = m.subject;
+      const f = document.createElement('span'); f.textContent = m.from;
+      const p = document.createElement('span'); p.textContent = m.snippet;
+      el.append(s, f, p);
+      el.onclick = () => openMail(m.id);
+      list.append(el);
+    });
+  } catch (e) { list.textContent = e.message; }
+}
+async function openMail(id) {
+  const r = $('reader'); r.textContent = 'Loading…';
+  try {
+    const m = await api('/api/emails/' + encodeURIComponent(id));
+    r.textContent = '';
+    const h = document.createElement('h3'); h.textContent = m.subject || '(no subject)';
+    const meta = document.createElement('div'); meta.style.cssText = 'font-size:13px;color:var(--muted)';
+    meta.textContent = `From: ${m.from}  ·  ${m.date}`;
+    const pre = document.createElement('pre'); pre.textContent = m.body;
+    r.append(h, meta, pre);
+  } catch (e) { r.textContent = e.message; }
+}
+$('refresh').onclick = loadInbox;
+
+// COMPOSE
+$('send').onclick = async () => {
+  const msg = $('sendMsg'); msg.className = 'msg'; msg.textContent = 'Sending…';
+  try {
+    await api('/api/emails/send', { method: 'POST', body: { to: $('to').value.trim(), subject: $('subject').value.trim(), body: $('body').value } });
+    msg.className = 'msg ok'; msg.textContent = 'Sent!';
+    $('subject').value = ''; $('body').value = '';
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+};
+
+// CHAT (polling)
+let lastId = 0, chatTimer;
+async function pollChat() {
+  try {
+    const msgs = await api('/api/chat?since=' + lastId);
+    const box = $('chat');
+    msgs.forEach((m) => {
+      lastId = Math.max(lastId, m.id);
+      const b = document.createElement('div'); b.className = 'bubble';
+      const sm = document.createElement('small'); sm.textContent = `${m.name} · ${new Date(m.ts).toLocaleTimeString()}`;
+      const d = document.createElement('div'); d.textContent = m.text;
+      b.append(sm, d); box.append(b);
+    });
+    if (msgs.length) box.scrollTop = box.scrollHeight;
+  } catch {}
+}
+async function sendChat() {
+  const t = $('chatText').value.trim(); if (!t) return;
+  $('chatText').value = '';
+  try { await api('/api/chat', { method: 'POST', body: { text: t } }); pollChat(); } catch {}
+}
+$('chatSend').onclick = sendChat;
+$('chatText').onkeydown = (e) => { if (e.key === 'Enter') sendChat(); };
+
+// INIT
+(async () => {
+  const params = new URLSearchParams(location.search);
+  if (params.get('error')) { show(2); $('err2').textContent = 'Google sign-in failed. Please try again.'; return; }
+  const me = await api('/api/me');
+  if (me.profile) { $('fullName').value = me.profile.fullName; $('company').value = me.profile.company; $('hint').value = me.profile.hint; }
+  if (me.connected) {
+    $('who').classList.remove('hidden');
+    $('whoText').textContent = me.user.email;
+    if (me.user.picture) $('avatar').src = me.user.picture; else $('avatar').classList.add('hidden');
+    show(3); loadInbox(); pollChat(); chatTimer = setInterval(pollChat, 2000);
+  } else show(me.profile ? 2 : 1);
+})();
+</script>
+</body>
+</html>
