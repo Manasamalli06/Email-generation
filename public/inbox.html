@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+  .acctabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+  .acctab { display:flex; align-items:center; gap:10px; padding:8px 14px 8px 8px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--ink); font:inherit; cursor:pointer; text-align:left; }
+  .acctab.on { border-color:var(--brand); background:var(--brand-soft); }
+  .acctab .badge { width:32px; height:32px; font-size:11px; border-radius:9px; }
+  .acctab b { display:block; font-size:14px; line-height:1.2; }
+  .acctab span { font-size:12px; color:var(--muted); word-break:break-all; }
+  .tabs { display:flex; gap:4px; margin-bottom:12px; }
+  .tab { padding:8px 14px; border-radius:10px; cursor:pointer; color:var(--muted); border:1px solid transparent; background:none; font:inherit; }
+  .tab.on { background:var(--card); color:var(--ink); border-color:var(--line); }
+  .grid { display:grid; grid-template-columns:1fr 1.2fr; gap:16px; }
+  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
+  .list { max-height:480px; overflow:auto; border:1px solid var(--line); border-radius:10px; }
+  .mail { padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+  .mail:hover { background:var(--bg); }
+  .mail b { display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mail span { font-size:12px; color:var(--muted); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .reader pre { white-space:pre-wrap; word-wrap:break-word; font:inherit; }
+  textarea { min-height:140px; resize:vertical; }
+  .chat { height:320px; overflow:auto; border:1px solid var(--line); border-radius:10px; padding:10px; background:var(--bg); }
+  .bubble { margin-bottom:8px; } .bubble small { color:var(--muted); }
+  .fromline { padding:10px 12px; background:var(--brand-soft); border-radius:10px; font-size:14px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-in">
+  <span class="brand">MailConnect</span>
+  <nav class="switch"><a href="/">Email settings</a></nav>
+</div></header>
+
+<main class="wrap">
+  <div id="acctabs" class="acctabs"></div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="inbox">Inbox</button>
+    <button class="tab" data-tab="compose">Compose</button>
+    <button class="tab" data-tab="chat">Chat</button>
+  </div>
+
+  <section class="card" id="tab-inbox">
+    <div class="grid">
+      <div class="list" id="mailList"></div>
+      <div class="reader" id="reader"><p class="muted">Select an email to read it.</p></div>
+    </div>
+    <div class="row"><button class="btn ghost small" id="refresh">Refresh</button></div>
+  </section>
+
+  <section class="card hidden" id="tab-compose">
+    <div class="fromline" id="fromline"></div>
+    <label for="to">To</label><input id="to" type="email">
+    <label for="subject">Subject</label><input id="subject">
+    <label for="body">Message</label><textarea id="body"></textarea>
+    <div class="row"><button class="btn" id="send">Send</button><span class="msg" id="sendMsg"></span></div>
+  </section>
+
+  <section class="card hidden" id="tab-chat">
+    <div class="chat" id="chat"></div>
+    <div class="row"><input id="chatText" placeholder="Type a message..." style="flex:1"><button class="btn" id="chatSend">Send</button></div>
+  </section>
+</main>
+
+<script src="/common.js"></script>
+<script>
+let accounts = [];
+let current = null; // id of the account being viewed
+
+const currentAcct = () => accounts.find((a) => a.id === current);
+
+function renderTabs() {
+  const host = $('acctabs');
+  host.textContent = '';
+  accounts.forEach((a) => {
+    const btn = document.createElement('button');
+    btn.className = 'acctab' + (a.id === current ? ' on' : '');
+    const t = document.createElement('div');
+    t.innerHTML = '<b></b><span></span>';
+    t.querySelector('b').textContent = a.roleLabel;
+    t.querySelector('span').textContent = a.email;
+    btn.append(badge(a), t);
+    btn.onclick = () => { current = a.id; renderTabs(); resetViews(); loadInbox(); };
+    host.append(btn);
+  });
+}
+
+function resetViews() {
+  $('reader').innerHTML = '<p class="muted">Select an email to read it.</p>';
+  $('fromline').textContent = 'Sending as ' + currentAcct().roleLabel + ': ' + currentAcct().email;
+  $('sendMsg').textContent = '';
+}
+
+document.querySelectorAll('.tab').forEach((t) => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('on', x === t));
+  ['inbox', 'compose', 'chat'].forEach((n) => $('tab-' + n).classList.toggle('hidden', n !== t.dataset.tab));
+});
+
+async function loadInbox() {
+  const list = $('mailList');
+  list.textContent = 'Loading...';
+  try {
+    const mails = await api('/api/emails?account=' + current);
+    list.textContent = '';
+    if (!mails.length) list.textContent = 'Inbox is empty.';
+    mails.forEach((m) => {
+      const el = document.createElement('div'); el.className = 'mail';
+      const s = document.createElement('b'); s.textContent = m.subject;
+      const f = document.createElement('span'); f.textContent = m.from;
+      const p = document.createElement('span'); p.textContent = m.snippet;
+      el.append(s, f, p);
+      el.onclick = () => openMail(m.id);
+      list.append(el);
+    });
+  } catch (e) { list.textContent = e.message; }
+}
+
+async function openMail(id) {
+  const r = $('reader'); r.textContent = 'Loading...';
+  try {
+    const m = await api('/api/emails/' + encodeURIComponent(id) + '?account=' + current);
+    r.textContent = '';
+    const h = document.createElement('h3'); h.textContent = m.subject || '(no subject)';
+    const meta = document.createElement('div'); meta.className = 'muted small';
+    meta.textContent = 'From: ' + m.from + '  |  ' + m.date;
+    const pre = document.createElement('pre'); pre.textContent = m.body;
+    r.append(h, meta, pre);
+  } catch (e) { r.textContent = e.message; }
+}
+$('refresh').onclick = loadInbox;
+
+$('send').onclick = async () => {
+  const msg = $('sendMsg'); msg.className = 'msg'; msg.textContent = 'Sending...';
+  try {
+    const r = await api('/api/emails/send', { account: current, to: $('to').value.trim(), subject: $('subject').value.trim(), body: $('body').value });
+    msg.className = 'msg ok'; msg.textContent = 'Sent from ' + r.from;
+    $('subject').value = ''; $('body').value = '';
+  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
+};
+
+let lastId = 0;
+async function pollChat() {
+  try {
+    const msgs = await api('/api/chat?since=' + lastId);
+    const box = $('chat');
+    msgs.forEach((m) => {
+      lastId = Math.max(lastId, m.id);
+      const b = document.createElement('div'); b.className = 'bubble';
+      const sm = document.createElement('small'); sm.textContent = m.name + ' | ' + new Date(m.ts).toLocaleTimeString();
+      const d = document.createElement('div'); d.textContent = m.text;
+      b.append(sm, d); box.append(b);
+    });
+    if (msgs.length) box.scrollTop = box.scrollHeight;
+  } catch {}
+}
+async function sendChat() {
+  const t = $('chatText').value.trim(); if (!t) return;
+  $('chatText').value = '';
+  try { await api('/api/chat', { text: t }); pollChat(); } catch {}
+}
+$('chatSend').onclick = sendChat;
+$('chatText').onkeydown = (e) => { if (e.key === 'Enter') sendChat(); };
+
+(async () => {
+  accounts = (await getAccounts()).accounts;
+  if (!accounts.length) { location.replace('/'); return; }
+  const wanted = new URLSearchParams(location.search).get('account');
+  current = (accounts.find((a) => a.id === wanted) || accounts[0]).id;
+  renderTabs();
+  resetViews();
+  loadInbox();
+  pollChat();
+  setInterval(pollChat, 2000);
+})();
+</script>
+</body>
+</html>

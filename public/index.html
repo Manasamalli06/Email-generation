@@ -3,230 +3,193 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Email & Chat Integration Demo</title>
+<title>Email Settings</title>
+<link rel="stylesheet" href="/style.css">
 <style>
-  :root { --bg:#f6f7fb; --card:#fff; --ink:#1c2230; --muted:#6b7385; --brand:#3b5bdb; --line:#e3e6ee; --ok:#2b8a3e; --err:#c92a2a; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg:#12151c; --card:#1a1f2b; --ink:#e8ebf3; --muted:#9aa3b5; --line:#2a3142; --brand:#6c8cff; }
-  }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--ink); }
-  header { padding:16px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); background:var(--card); }
-  header h1 { font-size:18px; margin:0; }
-  main { max-width:960px; margin:24px auto; padding:0 16px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; }
-  .steps { display:flex; gap:8px; margin-bottom:16px; font-size:13px; color:var(--muted); }
-  .step { padding:6px 12px; border-radius:999px; border:1px solid var(--line); }
-  .step.active { background:var(--brand); color:#fff; border-color:var(--brand); }
-  .step.done { color:var(--ok); border-color:var(--ok); }
-  label { display:block; font-size:13px; color:var(--muted); margin:12px 0 4px; }
-  input, textarea { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:var(--bg); color:var(--ink); }
-  textarea { min-height:120px; resize:vertical; }
-  button { padding:10px 16px; border:0; border-radius:8px; background:var(--brand); color:#fff; font:inherit; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
-  button:disabled { opacity:.5; cursor:default; }
-  .row { display:flex; gap:12px; margin-top:16px; align-items:center; flex-wrap:wrap; }
-  .tabs { display:flex; gap:4px; margin-bottom:12px; }
-  .tab { padding:8px 14px; border-radius:8px; cursor:pointer; color:var(--muted); }
-  .tab.active { background:var(--card); color:var(--ink); border:1px solid var(--line); }
-  .grid { display:grid; grid-template-columns: 1fr 1.2fr; gap:16px; }
-  @media (max-width:760px) { .grid { grid-template-columns:1fr; } }
-  .mail { padding:10px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
-  .mail:hover { background:var(--bg); }
-  .mail b { display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .mail span { font-size:12px; color:var(--muted); display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .list { max-height:460px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
-  .reader pre { white-space:pre-wrap; word-wrap:break-word; font:inherit; }
-  .msg { font-size:13px; margin-top:8px; }
-  .msg.ok { color:var(--ok); } .msg.err { color:var(--err); }
-  .chat { height:340px; overflow:auto; border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--bg); }
-  .bubble { margin-bottom:8px; } .bubble small { color:var(--muted); } .bubble div { margin-top:2px; }
-  .hidden { display:none; }
-  .who { font-size:13px; color:var(--muted); display:flex; align-items:center; gap:8px; }
-  .who img { width:26px; height:26px; border-radius:50%; }
+  .crumbs { font-size:13px; color:var(--muted); margin-bottom:10px; }
+  .panel-head { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:18px 20px; border-bottom:1px solid var(--line); }
+  .panel-head h2 { margin:0; font-size:17px; }
+  .panel-head p { margin:2px 0 0; font-size:13px; color:var(--muted); }
+  .panel { padding:0; overflow:hidden; }
+  .acct { display:grid; grid-template-columns:auto 1fr auto; gap:14px; align-items:center; padding:16px 20px; }
+  .acct + .acct { border-top:1px solid var(--line); }
+  .acct.new { background:var(--ok-soft); }
+  .acct .email { font-weight:600; word-break:break-all; }
+  .acct .meta { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:4px; font-size:13px; color:var(--muted); }
+  .pill { font-size:12px; font-weight:600; padding:2px 10px; border-radius:999px; background:var(--brand-soft); color:var(--brand); }
+  .acts { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  @media (max-width:640px) { .acct { grid-template-columns:auto 1fr; } .acts { grid-column:1 / -1; justify-content:flex-start; } }
+  .empty { padding:44px 20px; text-align:center; }
+  .empty h3 { margin:0 0 6px; }
+  .empty p { margin:0 auto 18px; max-width:420px; color:var(--muted); }
+
+  dialog { border:1px solid var(--line); border-radius:16px; padding:0; width:min(480px, calc(100vw - 32px)); background:var(--card); color:var(--ink); box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  dialog::backdrop { background:rgba(15,19,27,.55); }
+  .dlg { padding:24px; }
+  .dlg h3 { margin:0 0 6px; font-size:20px; letter-spacing:-.01em; }
+  .dlg p { margin:0 0 4px; color:var(--muted); font-size:14px; }
+  .dlg ul { margin:12px 0; padding-left:20px; font-size:14px; }
+  .dlg li { margin:4px 0; }
+  .dlg .foot { display:flex; justify-content:flex-end; gap:10px; margin-top:22px; flex-wrap:wrap; }
+  .linkbtn { background:none; border:0; color:var(--brand); font:inherit; font-size:13px; cursor:pointer; padding:0; margin-top:12px; text-decoration:underline; }
+  .notice { background:var(--brand-soft); border-radius:10px; padding:10px 12px; font-size:14px; margin-top:12px; }
 </style>
 </head>
 <body>
-<header>
-  <h1>Email & Chat Integration Demo</h1>
-  <div class="who hidden" id="who"><img id="avatar" alt=""><span id="whoText"></span><button class="ghost" id="logout">Disconnect</button></div>
-</header>
+<header class="top"><div class="top-in">
+  <span class="brand">MailConnect</span>
+  <nav class="switch"><a href="/inbox.html" id="inboxLink">Open inbox</a></nav>
+</div></header>
 
-<main>
-  <div class="steps">
-    <div class="step" id="s1">1. Your details</div>
-    <div class="step" id="s2">2. Connect email</div>
-    <div class="step" id="s3">3. Use it</div>
-  </div>
+<main class="wrap">
+  <div class="crumbs">Settings &rsaquo; Email</div>
+  <h1>Email</h1>
+  <p class="lead">Connect the email accounts your team sends and receives from. Each account is attached to a role, so HR mail comes from the HR address and accounts mail from the accounts address.</p>
 
-  <!-- STEP 1 -->
-  <section class="card" id="step1">
-    <h2 style="margin-top:0">Tell us a bit about you</h2>
-    <p style="color:var(--muted)">Fill in what's asked and your email setup starts right here.</p>
-    <label for="fullName">Full name *</label>
-    <input id="fullName" autocomplete="name">
-    <label for="company">Company / team *</label>
-    <input id="company" autocomplete="organization">
-    <label for="hint">Email address you want to connect (optional)</label>
-    <input id="hint" type="email" autocomplete="email">
-    <div class="row"><button id="continue">Continue</button><span class="msg err" id="err1"></span></div>
+  <div id="flash" class="hidden"></div>
+
+  <section class="card panel">
+    <div class="panel-head">
+      <div><h2>Connected email accounts</h2><p id="count"></p></div>
+      <button class="btn" id="connectBtn">Connect email account</button>
+    </div>
+    <div id="list"></div>
   </section>
 
-  <!-- STEP 2 -->
-  <section class="card hidden" id="step2">
-    <h2 style="margin-top:0">Connect your email</h2>
-    <p style="color:var(--muted)">One click. You'll sign in with Google and allow read + send access. Nothing is stored beyond your session.</p>
-    <div class="row"><button id="connect">Connect Gmail</button><button class="ghost" id="back">Back</button></div>
-    <div class="msg err" id="err2"></div>
-  </section>
-
-  <!-- STEP 3 -->
-  <section class="hidden" id="step3">
-    <div class="tabs">
-      <div class="tab active" data-tab="inbox">Inbox</div>
-      <div class="tab" data-tab="compose">Compose</div>
-      <div class="tab" data-tab="chat">Chat</div>
-    </div>
-
-    <div class="card" id="tab-inbox">
-      <div class="grid">
-        <div class="list" id="mailList"></div>
-        <div class="reader" id="reader"><p style="color:var(--muted)">Select an email to read it.</p></div>
-      </div>
-      <div class="row"><button class="ghost" id="refresh">Refresh</button></div>
-    </div>
-
-    <div class="card hidden" id="tab-compose">
-      <label for="to">To</label><input id="to" type="email">
-      <label for="subject">Subject</label><input id="subject">
-      <label for="body">Message</label><textarea id="body"></textarea>
-      <div class="row"><button id="send">Send</button><span class="msg" id="sendMsg"></span></div>
-    </div>
-
-    <div class="card hidden" id="tab-chat">
-      <div class="chat" id="chat"></div>
-      <div class="row">
-        <input id="chatText" placeholder="Type a message…" style="flex:1">
-        <button id="chatSend">Send</button>
-      </div>
-      <p class="msg" style="color:var(--muted)">Sample chat integration. Open this page in two browsers to see messages sync.</p>
-    </div>
-  </section>
+  <p class="footer-note">You sign in on Google's own page. This app never sees your password, and you can disconnect an account at any time.</p>
 </main>
 
-<script>
-const $ = (id) => document.getElementById(id);
-const api = async (url, opts) => {
-  const r = await fetch(url, opts && opts.body ? { ...opts, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(opts.body) } : opts);
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || 'Request failed');
-  return data;
-};
+<dialog id="dlg"><div class="dlg" id="dbody"></div></dialog>
 
-function show(step) {
-  ['step1','step2','step3'].forEach((s, i) => {
-    $(s).classList.toggle('hidden', i + 1 !== step);
-    $('s' + (i + 1)).className = 'step' + (i + 1 === step ? ' active' : i + 1 < step ? ' done' : '');
+<script src="/common.js"></script>
+<script>
+let data = { roles: [], accounts: [] };
+let flash = null;
+const dlg = $('dlg');
+const dbody = $('dbody');
+let st = null; // dialog state
+
+// ---------- connected accounts list ----------
+function renderList() {
+  const list = $('list');
+  list.textContent = '';
+  $('count').textContent = data.accounts.length
+    ? data.accounts.length + (data.accounts.length === 1 ? ' account' : ' accounts') + ' connected'
+    : 'No accounts connected yet';
+  $('inboxLink').classList.toggle('hidden', !data.accounts.length);
+
+  if (!data.accounts.length) {
+    list.innerHTML = '<div class="empty"><h3>No email accounts connected</h3><p>Connect an account to read its inbox and send email from it, right from this app.</p></div>';
+    const b = document.createElement('button');
+    b.className = 'btn'; b.textContent = 'Connect email account';
+    b.onclick = openConnect;
+    list.querySelector('.empty').append(b);
+    return;
+  }
+  data.accounts.forEach((a) => {
+    const row = document.createElement('div');
+    row.className = 'acct' + (flash && flash.id === a.id ? ' new' : '');
+    const mid = document.createElement('div');
+    mid.innerHTML = '<div class="email"></div><div class="meta"><span class="pill"></span><span></span></div>';
+    mid.querySelector('.email').textContent = a.email;
+    mid.querySelector('.pill').textContent = a.roleLabel;
+    mid.querySelectorAll('.meta span')[1].textContent = a.provider + ' | Connected';
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const open = document.createElement('a');
+    open.className = 'btn small'; open.href = '/inbox.html?account=' + a.id; open.textContent = 'Open inbox';
+    const off = document.createElement('button');
+    off.className = 'btn ghost small'; off.textContent = 'Disconnect';
+    off.onclick = async () => {
+      if (!confirm('Disconnect ' + a.email + '?')) return;
+      await disconnectAccount(a.id);
+      await load();
+    };
+    acts.append(open, off);
+    row.append(badge(a), mid, acts);
+    list.append(row);
   });
 }
 
-// STEP 1
-$('continue').onclick = async () => {
-  $('err1').textContent = '';
-  try {
-    await api('/api/onboard', { method: 'POST', body: { fullName: $('fullName').value.trim(), company: $('company').value.trim(), email: $('hint').value.trim() } });
-    show(2);
-  } catch (e) { $('err1').textContent = e.message; }
-};
-$('back').onclick = () => show(1);
-$('connect').onclick = () => { location.href = '/auth/google'; };
-$('logout').onclick = async () => { await api('/auth/logout', { method: 'POST' }); location.href = '/'; };
-
-// TABS
-document.querySelectorAll('.tab').forEach((t) => t.onclick = () => {
-  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === t));
-  ['inbox','compose','chat'].forEach((n) => $('tab-' + n).classList.toggle('hidden', n !== t.dataset.tab));
-});
-
-// INBOX
-async function loadInbox() {
-  const list = $('mailList');
-  list.textContent = 'Loading…';
-  try {
-    const mails = await api('/api/emails');
-    list.textContent = '';
-    if (!mails.length) list.textContent = 'Inbox is empty.';
-    mails.forEach((m) => {
-      const el = document.createElement('div'); el.className = 'mail';
-      const s = document.createElement('b'); s.textContent = m.subject;
-      const f = document.createElement('span'); f.textContent = m.from;
-      const p = document.createElement('span'); p.textContent = m.snippet;
-      el.append(s, f, p);
-      el.onclick = () => openMail(m.id);
-      list.append(el);
-    });
-  } catch (e) { list.textContent = e.message; }
+// ---------- connect dialog (enter email -> detect provider -> connect) ----------
+function openConnect() {
+  st = { step: 1, email: '', role: data.roles[0].id, provider: null, error: '' };
+  renderDialog();
+  dlg.showModal();
 }
-async function openMail(id) {
-  const r = $('reader'); r.textContent = 'Loading…';
-  try {
-    const m = await api('/api/emails/' + encodeURIComponent(id));
-    r.textContent = '';
-    const h = document.createElement('h3'); h.textContent = m.subject || '(no subject)';
-    const meta = document.createElement('div'); meta.style.cssText = 'font-size:13px;color:var(--muted)';
-    meta.textContent = `From: ${m.from}  ·  ${m.date}`;
-    const pre = document.createElement('pre'); pre.textContent = m.body;
-    r.append(h, meta, pre);
-  } catch (e) { r.textContent = e.message; }
-}
-$('refresh').onclick = loadInbox;
 
-// COMPOSE
-$('send').onclick = async () => {
-  const msg = $('sendMsg'); msg.className = 'msg'; msg.textContent = 'Sending…';
-  try {
-    await api('/api/emails/send', { method: 'POST', body: { to: $('to').value.trim(), subject: $('subject').value.trim(), body: $('body').value } });
-    msg.className = 'msg ok'; msg.textContent = 'Sent!';
-    $('subject').value = ''; $('body').value = '';
-  } catch (e) { msg.className = 'msg err'; msg.textContent = e.message; }
-};
+function renderDialog() {
+  dbody.textContent = '';
+  if (st.step === 1) {
+    dbody.innerHTML =
+      '<h3>Connect an email account</h3>' +
+      '<p>Enter the address you want to connect. We will find the right sign-in for it.</p>' +
+      '<label for="dEmail">Email address</label>' +
+      '<input id="dEmail" type="email" autocomplete="off" placeholder="name@yourcompany.com">' +
+      '<label for="dRole">This account is for</label>' +
+      '<select id="dRole"></select>' +
+      '<div class="msg err" id="dErr"></div>' +
+      '<div class="foot"><button class="btn ghost" id="dCancel">Cancel</button><button class="btn" id="dNext">Next</button></div>';
+    const sel = $('dRole');
+    data.roles.forEach((r) => { const o = document.createElement('option'); o.value = r.id; o.textContent = r.label + ' - ' + r.desc; sel.append(o); });
+    $('dEmail').value = st.email; sel.value = st.role; $('dErr').textContent = st.error;
+    $('dCancel').onclick = () => dlg.close();
+    $('dEmail').onkeydown = (e) => { if (e.key === 'Enter') $('dNext').click(); };
+    $('dNext').onclick = async () => {
+      st.email = $('dEmail').value.trim(); st.role = $('dRole').value; st.error = '';
+      $('dNext').disabled = true; $('dNext').textContent = 'Checking...';
+      try {
+        const r = await api('/api/detect?email=' + encodeURIComponent(st.email));
+        st.provider = r.provider; st.step = 2;
+      } catch (e) { st.error = e.message; }
+      renderDialog();
+    };
+    setTimeout(() => $('dEmail').focus(), 0);
+    return;
+  }
 
-// CHAT (polling)
-let lastId = 0, chatTimer;
-async function pollChat() {
-  try {
-    const msgs = await api('/api/chat?since=' + lastId);
-    const box = $('chat');
-    msgs.forEach((m) => {
-      lastId = Math.max(lastId, m.id);
-      const b = document.createElement('div'); b.className = 'bubble';
-      const sm = document.createElement('small'); sm.textContent = `${m.name} · ${new Date(m.ts).toLocaleTimeString()}`;
-      const d = document.createElement('div'); d.textContent = m.text;
-      b.append(sm, d); box.append(b);
-    });
-    if (msgs.length) box.scrollTop = box.scrollHeight;
-  } catch {}
-}
-async function sendChat() {
-  const t = $('chatText').value.trim(); if (!t) return;
-  $('chatText').value = '';
-  try { await api('/api/chat', { method: 'POST', body: { text: t } }); pollChat(); } catch {}
-}
-$('chatSend').onclick = sendChat;
-$('chatText').onkeydown = (e) => { if (e.key === 'Enter') sendChat(); };
+  // step 2: Google, or a message when the provider is not supported yet
+  if (st.provider === 'google') {
+    dbody.innerHTML =
+      '<h3>Connect to Gmail</h3>' +
+      '<p>You will sign in on Google\'s own page. By continuing, you allow this app to:</p>' +
+      '<ul><li>Read the emails in this inbox</li><li>Send email from this account</li><li>See your name, address and profile picture</li></ul>' +
+      '<div class="notice"></div>' +
+      '<div class="foot"><button class="btn ghost" id="dBack">Back</button><button class="btn" id="dGo">Connect to Gmail</button></div>';
+    dbody.querySelector('.notice').textContent = st.email + ' will be connected as ' + (data.roles.find((r) => r.id === st.role) || {}).label + '.';
+    $('dBack').onclick = () => { st.step = 1; renderDialog(); };
+    $('dGo').onclick = () => connectGoogle(st.role, st.email);
+    return;
+  }
 
-// INIT
+  const why = {
+    microsoft: 'This looks like an Outlook or Microsoft 365 address. Only Gmail accounts can be connected in this demo.',
+    other: 'We could not match this address to Gmail. Only Gmail accounts can be connected in this demo.',
+    unknown: 'We could not detect the email provider for this address. Only Gmail accounts can be connected in this demo.',
+  }[st.provider];
+  dbody.innerHTML =
+    '<h3>This account cannot be connected yet</h3><p></p>' +
+    '<button class="linkbtn" id="dChoose">My account is a Google account, connect it anyway</button>' +
+    '<div class="foot"><button class="btn ghost" id="dBack">Back</button><button class="btn" id="dClose">Close</button></div>';
+  dbody.querySelector('p').textContent = why;
+  $('dBack').onclick = () => { st.step = 1; renderDialog(); };
+  $('dClose').onclick = () => dlg.close();
+  $('dChoose').onclick = () => { st.provider = 'google'; renderDialog(); };
+}
+
+$('connectBtn').onclick = openConnect;
+dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+
+async function load() {
+  data = await getAccounts();
+  renderList();
+}
+
 (async () => {
-  const params = new URLSearchParams(location.search);
-  if (params.get('error')) { show(2); $('err2').textContent = 'Google sign-in failed. Please try again.'; return; }
-  const me = await api('/api/me');
-  if (me.profile) { $('fullName').value = me.profile.fullName; $('company').value = me.profile.company; $('hint').value = me.profile.hint; }
-  if (me.connected) {
-    $('who').classList.remove('hidden');
-    $('whoText').textContent = me.user.email;
-    if (me.user.picture) $('avatar').src = me.user.picture; else $('avatar').classList.add('hidden');
-    show(3); loadInbox(); pollChat(); chatTimer = setInterval(pollChat, 2000);
-  } else show(me.profile ? 2 : 1);
+  await load();
+  flash = readFlash(data.accounts);
+  showFlash($('flash'), flash);
+  if (flash) renderList();
 })();
 </script>
 </body>
